@@ -43,16 +43,22 @@ public abstract class RegAST implements Cloneable {
 
     /** Make transition in AST-NFA on char c.
      *  @param st is starting state */
-    protected void shift(boolean st, char c) {
-        if (active || st) // avoid unnecessary steps
-            step(st, c);
-    }
-    /** Make actual transition. for use only inside #shift */
-    protected abstract void step(boolean st, char c);
+    protected abstract void shift(boolean st, char c);
     protected abstract RegAST clone();
 
+    /** RegAST with avoiding unnecessary shifts */
+    public static abstract class ARegAST extends RegAST {
+        protected ARegAST(boolean canEmpty) { super(canEmpty); }
+        @Override protected void shift(boolean st, char c) {
+            if (active || st) // avoid unnecessary steps
+                step(st, c);
+        }
+        /** Make actual transition. for use only inside #shift */
+        protected abstract void step(boolean st, char c);
+    }
+
     /** match empty string */
-    static class Eps extends RegAST {
+    static class Eps extends ARegAST {
         private Eps() { super(true); }
         @Override protected void step(boolean st, char c) {}
         @Override protected Eps clone() { return this; }
@@ -61,7 +67,7 @@ public abstract class RegAST implements Cloneable {
     static final Eps eps = new Eps(); // singleton Eps
 
     /** match one symbol */
-    static class Sym extends RegAST {
+    static class Sym extends ARegAST {
         private final char c;
         Sym(char c) {
             super(false);
@@ -76,7 +82,7 @@ public abstract class RegAST implements Cloneable {
     }
 
     /** match any symbol */
-    static class AnySym extends RegAST {
+    static class AnySym extends ARegAST {
         AnySym() { super(false); }
         @Override protected void step(boolean st, char c) {
             active = canFinal = st;
@@ -87,7 +93,7 @@ public abstract class RegAST implements Cloneable {
     // TODO: match symbol group eg: [a-z]. class SymGroup { Predicate<Character> f }
 
     /** Either p or q */
-    static class Alt extends RegAST {
+    static class Alt extends ARegAST {
         private final RegAST p, q;
         Alt(RegAST p, RegAST q) {
             super(p.canEmpty || q.canEmpty);
@@ -107,7 +113,7 @@ public abstract class RegAST implements Cloneable {
         }
     }
     /** Either one of list */
-    static class AltList extends RegAST {
+    static class AltList extends ARegAST {
         private final List<RegAST> lst;
         AltList(List<RegAST> lst) {
             super(lst.stream().anyMatch(r -> r.canEmpty));
@@ -129,7 +135,7 @@ public abstract class RegAST implements Cloneable {
         }
     }
     /** Sequence p then q */
-    static class Seq extends RegAST {
+    static class Seq extends ARegAST {
         private final RegAST p, q;
         Seq(RegAST p, RegAST q) {
             super(p.canEmpty && q.canEmpty);
@@ -151,7 +157,7 @@ public abstract class RegAST implements Cloneable {
         }
     }
     /** Sequence of >1 regexps */
-    static class SeqList extends RegAST {
+    static class SeqList extends ARegAST {
         private final List<RegAST> lst;
         SeqList(List<RegAST> lst) {
             super(lst.stream().allMatch(r -> r.canEmpty));
@@ -176,7 +182,7 @@ public abstract class RegAST implements Cloneable {
     }
     /** Repetition of r any times (including 0).
      *  Can be replaced by Alt(eps, Rep1(r)) */
-    static class Rep extends RegAST {
+    static class Rep extends ARegAST {
         final RegAST r;
         public Rep(RegAST r) {
             super(true);
@@ -196,7 +202,7 @@ public abstract class RegAST implements Cloneable {
         }
     }
     /** Repetition of r  >=1 times. */
-    static class Rep1 extends RegAST {
+    static class Rep1 extends ARegAST {
         final RegAST r;
         public Rep1(RegAST r) {
             super(r.canEmpty);
