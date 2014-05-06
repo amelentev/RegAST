@@ -1,4 +1,4 @@
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -47,7 +47,7 @@ public abstract class RegAST implements Cloneable {
     protected abstract RegAST clone();
 
     /** RegAST with avoiding unnecessary shifts */
-    public static abstract class ARegAST extends RegAST {
+    private static abstract class ARegAST extends RegAST {
         protected ARegAST(boolean canEmpty) { super(canEmpty); }
         @Override protected void shift(boolean st, char c) {
             if (active || st) // avoid unnecessary steps
@@ -68,7 +68,7 @@ public abstract class RegAST implements Cloneable {
 
     /** match one symbol */
     static class Sym extends ARegAST {
-        private final char c;
+        final char c;
         Sym(char c) {
             super(false);
             this.c = c;
@@ -79,6 +79,43 @@ public abstract class RegAST implements Cloneable {
         @Override protected Sym clone() { return new Sym(c); }
         final static String escapeSymbols = "*.+@";
         @Override public String toString() { return (escapeSymbols.indexOf(c)>=0 ? "\\"+c : c) + (canFinal?"`":""); }
+    }
+
+    static class Str extends ARegAST {
+        final String s;
+        Str(String s) {
+            super(s.isEmpty());
+            this.s = s;
+        }
+        /** sorted indexes of final chars. mutable */
+        final LinkedList<Integer> finals = new LinkedList<>();
+        @Override protected void step(boolean st, char c) {
+            ListIterator<Integer> li = finals.listIterator();
+            while (li.hasNext()) { // shift finals
+                int i = li.next();
+                if (i+1 < s.length() && s.charAt(i+1) == c)
+                    li.set(i+1);
+                else
+                    li.remove();
+            }
+            if (st && !s.isEmpty() && c == s.charAt(0))
+                finals.addFirst(0);
+            active = !finals.isEmpty();
+            canFinal = active && finals.getLast() == s.length()-1;
+        }
+        @Override protected RegAST clone() { return new Str(s); }
+        @Override public String toString() {
+            String res = s;
+            for (char c : Sym.escapeSymbols.toCharArray())
+                res = res.replace(""+c, "\\"+c);
+            return res;
+        }
+    }
+
+    static RegAST newStr(CharSequence s) {
+        if (s.length()==0) return eps;
+        if (s.length()==1) return new Sym(s.charAt(0));
+        else return new Str(s.toString());
     }
 
     /** match any symbol */
@@ -116,9 +153,9 @@ public abstract class RegAST implements Cloneable {
     static class AltList extends ARegAST {
         private final List<RegAST> lst;
         AltList(List<RegAST> lst) {
-            super(lst.stream().anyMatch(r -> r.canEmpty));
-            this.lst = lst;
+            this(lst.stream().anyMatch(r -> r.canEmpty), lst);
         }
+        private AltList(boolean canEmpty, List<RegAST> lst) { super(canEmpty); this.lst = lst; }
         @Override protected void step(boolean st, char c) {
             active = canFinal = false;
             for (RegAST a : lst) {
@@ -128,7 +165,7 @@ public abstract class RegAST implements Cloneable {
             }
         }
         @Override protected AltList clone() {
-            return new AltList(lst.stream().map(RegAST::clone).collect(Collectors.toList()));
+            return new AltList(canEmpty, lst.stream().map(RegAST::clone).collect(Collectors.toList()));
         }
         @Override public String toString() {
             return "("+ lst.stream().map(Object::toString).collect(Collectors.joining("|"))+")";
@@ -158,11 +195,11 @@ public abstract class RegAST implements Cloneable {
     }
     /** Sequence of >1 regexps */
     static class SeqList extends ARegAST {
-        private final List<RegAST> lst;
+        protected final List<RegAST> lst;
         SeqList(List<RegAST> lst) {
-            super(lst.stream().allMatch(r -> r.canEmpty));
-            this.lst = lst;
+            this(lst.stream().allMatch(r -> r.canEmpty), lst);
         }
+        private SeqList(boolean canEmpty, List<RegAST> lst) { super(canEmpty); this.lst = lst; }
         @Override protected void step(boolean st, char c) {
             active = canFinal = false;
             for (RegAST a : lst) {
@@ -174,7 +211,7 @@ public abstract class RegAST implements Cloneable {
             }
         }
         @Override protected SeqList clone() {
-            return new SeqList(lst.stream().map(RegAST::clone).collect(Collectors.toList()));
+            return new SeqList(canEmpty, lst.stream().map(RegAST::clone).collect(Collectors.toList()));
         }
         @Override public String toString() {
             return lst.stream().map(Object::toString).collect(Collectors.joining());
@@ -184,7 +221,7 @@ public abstract class RegAST implements Cloneable {
      *  Can be replaced by Alt(eps, Rep1(r)) */
     static class Rep extends ARegAST {
         final RegAST r;
-        public Rep(RegAST r) {
+        Rep(RegAST r) {
             super(true);
             this.r = r;
         }
@@ -204,7 +241,7 @@ public abstract class RegAST implements Cloneable {
     /** Repetition of r  >=1 times. */
     static class Rep1 extends ARegAST {
         final RegAST r;
-        public Rep1(RegAST r) {
+        Rep1(RegAST r) {
             super(r.canEmpty);
             this.r = r;
         }

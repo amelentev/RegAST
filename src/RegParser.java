@@ -1,6 +1,4 @@
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.LinkedList;
+import java.util.*;
 import java.util.function.IntConsumer;
 import java.util.regex.PatternSyntaxException;
 
@@ -21,10 +19,13 @@ public class RegParser {
         nalt = natom = 0;
         final IntConsumer doseq = (na) -> { // Seq of na atoms
             if (na > 1) {
-                LinkedList<RegAST> lst = new LinkedList<>();
+                Deque<RegAST> lst = new ArrayDeque<>();
                 for (int i = 0; i < na; i++)
-                    lst.addFirst(ast.pop());
-                ast.push(new RegAST.SeqList(lst));
+                    lst.addFirst(ast.pop()); // reverse stack
+                List<RegAST> lst2 = extractStrings(lst);
+                //List<RegAST> lst2 = new ArrayList<>(lst);
+                ast.push(balance(lst2));
+                //ast.push(new RegAST.SeqList(lst2));
             }
         };
         final IntConsumer doalt = (n) -> { // Alt n times
@@ -112,5 +113,33 @@ public class RegParser {
             this.nalt = nalt;
             this.natom = natom;
         }
+    }
+
+    /** concat consecutive Sym to Str */
+    private static List<RegAST> extractStrings(Collection<RegAST> lst) {
+        StringBuilder sb = new StringBuilder();
+        List<RegAST> res = new ArrayList<>();
+        for (RegAST a : lst) {
+            if (a instanceof RegAST.Sym)
+                sb.append(((RegAST.Sym)a).c);
+            else {
+                if (sb.length()>0) {
+                    res.add(RegAST.newStr(sb));
+                    sb.setLength(0);
+                }
+                res.add(a);
+            }
+        }
+        if (sb.length() > 0)
+            res.add(RegAST.newStr(sb));
+        return res;
+    }
+
+    /** construct balanced binary tree of Seq */
+    private static RegAST balance(List<RegAST> lst) {
+        int n = lst.size();
+        assert n>0;
+        if (n==1) return lst.get(0);
+        return new RegAST.Seq(balance(lst.subList(0, n/2)), balance(lst.subList(n/2, n)));
     }
 }

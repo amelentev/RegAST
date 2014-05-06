@@ -101,7 +101,8 @@ public class RegASTTest {
         re.append(inp.toString());
         long time = System.currentTimeMillis();
         check(true, re.toString(), inp.toString());
-        System.out.println("our:" + (System.currentTimeMillis() - time)); // ~0.7s in 2GHz i7.
+        time = System.currentTimeMillis() - time;
+        System.out.println("performance1: " + time); // ~0.63s in 2GHz i7. without balancing: ~0.52
         // grep -E '(a?){5000}a{5000}' - hang
         // google re2 - 4.919s
     }
@@ -115,13 +116,29 @@ public class RegASTTest {
         for (int i = 0; i < n; i++) inp.append('a');
         return inp;
     }
+    @Test public void performance2() {
+        int n = 100000;
+        Random r = new Random(0);
+        RegAST re = RegParser.parse(genrnd(r, n, 1));
+        String s = genrnd(r, 2*n, 1);
+        boolean b = false;
+        long time = System.currentTimeMillis();
+        for (int i = 0; i < 100; i++) {
+            b ^= re.match(s);
+        }
+        time = System.currentTimeMillis() - time;
+        System.out.println("performance2: " + time);
+        // no balanced, no Str - hang. 10^10 ops.
+        // balanced, no Str - ~3653
+        // Str - ~455
+    }
 
     @Test public void parallelTest() throws ExecutionException, InterruptedException {
         String sre = "((a|b)*c(a|b)*c)*(a|b)*";
         Pattern p = Pattern.compile(sre);
         RegAST re = RegParser.parse(sre);
         Callable<Boolean> task = () -> {
-            String s = genrnd(1000);
+            String s = genrnd(new Random(), 1000, 3);
             boolean our = re.match(s);
             boolean exp = p.matcher(s).matches(); // >=10000 - stack overflow in j.u.regexp
             return exp == our;
@@ -134,12 +151,11 @@ public class RegASTTest {
             assertTrue(f.get());
     }
 
-    /** generete random string in alphabet {a,b,c} */
-    String genrnd(int n) {
+    /** generete random string in alphabet {a,..,a+d} */
+    String genrnd(Random r, int n, int d) {
         StringBuilder sb = new StringBuilder();
-        Random r = new Random();
         for (int i = 0; i < n; i++)
-            sb.append((char)('a' + r.nextInt(3)));
+            sb.append((char)('a' + r.nextInt(d)));
         return sb.toString();
     }
 }
