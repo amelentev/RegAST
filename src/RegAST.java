@@ -149,6 +149,7 @@ public abstract class RegAST implements RegExp, Cloneable {
             return "("+p.toString() + "|" + q.toString() + ")";
         }
     }
+    private static List<RegAST> cloneList(List<RegAST> lst) { return lst.stream().map(RegAST::clone).collect(Collectors.toList()); }
     /** Either one of list */
     static class AltList extends ARegAST {
         private final List<RegAST> lst;
@@ -165,7 +166,7 @@ public abstract class RegAST implements RegExp, Cloneable {
             }
         }
         @Override protected AltList clone() {
-            return new AltList(canEmpty, lst.stream().map(RegAST::clone).collect(Collectors.toList()));
+            return new AltList(canEmpty, cloneList(lst));
         }
         @Override public String toString() {
             return "("+ lst.stream().map(Object::toString).collect(Collectors.joining("|"))+")";
@@ -211,13 +212,68 @@ public abstract class RegAST implements RegExp, Cloneable {
                 active |= a.active;
             }
         }
-        @Override protected SeqList clone() {
-            return new SeqList(canEmpty, lst.stream().map(RegAST::clone).collect(Collectors.toList()));
-        }
+        @Override protected SeqList clone() { return new SeqList(canEmpty, cloneList(lst)); }
+
         @Override public String toString() {
             return lst.stream().map(Object::toString).collect(Collectors.joining());
         }
     }
+
+    /** Sequence of regexps with skipping non actives. Generalization of Str */
+    static class SeqSmartList extends SeqList {
+        /** immutable */
+        final int nextNotEmpty[];
+        SeqSmartList(List<RegAST> lst) {
+            super(lst);
+            int n = lst.size();
+            nextNotEmpty = new int[n];
+            int lastNotEmpty = n;
+            for (int i = n-1; i>=0; i--) {
+                if (!lst.get(i).canEmpty)
+                    lastNotEmpty = i;
+                nextNotEmpty[i] = lastNotEmpty;
+            }
+        }
+        /** return if all nodes on [l,r) range have canEmpty. l inclusive, r exclusive */
+        private boolean canAllEmptyOn(int l, int r) { return l>=r || nextNotEmpty[l] >= r; }
+        /** mutable */
+        private List<Integer> actives = new ArrayList<>();
+        @Override protected void step(boolean st, char c) {
+            int idx = 0;
+            int n = lst.size();
+            active = canFinal = false;
+            List<Integer> newActives = new ArrayList<>();
+            while (st && idx < n) {
+                RegAST a = lst.get(idx++);
+                boolean nextst = a.canEmpty || a.canFinal;
+                a.shift(st, c);
+                st = nextst;
+                canFinal = canFinal && a.canEmpty || a.canFinal;
+                active |= a.active;
+                if (a.active) newActives.add(idx-1);
+            }
+            for (int ai : actives) {
+                if (ai < idx) continue;
+                canFinal = canFinal && canAllEmptyOn(idx, ai);
+                idx = ai;
+                do {
+                    RegAST a = lst.get(idx++);
+                    boolean nextst = st && a.canEmpty || a.canFinal;
+                    a.shift(st, c);
+                    st = nextst;
+                    canFinal = canFinal && a.canEmpty || a.canFinal;
+                    active |= a.active;
+                    if (a.active) newActives.add(idx-1);
+                } while (st && idx < n);
+            }
+            if (idx < n)
+                canFinal = canFinal && canAllEmptyOn(idx, n);
+            actives = newActives;
+        }
+        SeqSmartList(boolean canEmpty, int[] nextNotEmpty, List<RegAST> lst) { super(canEmpty, lst); this.nextNotEmpty = nextNotEmpty; }
+        @Override protected SeqSmartList clone() { return new SeqSmartList(canEmpty, nextNotEmpty, cloneList(lst)); }
+    }
+
     /** Repetition of r any times (including 0).
      *  Can be replaced by Alt(eps, Rep1(r)) */
     static class Rep extends ARegAST {

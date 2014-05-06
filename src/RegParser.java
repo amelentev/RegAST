@@ -1,5 +1,4 @@
 import java.util.*;
-import java.util.function.BinaryOperator;
 import java.util.function.IntConsumer;
 import java.util.regex.PatternSyntaxException;
 
@@ -25,8 +24,8 @@ public class RegParser {
                     lst.addFirst(ast.pop()); // reverse stack
                 List<RegAST> lst2 = extractStrings(lst);
                 //List<RegAST> lst2 = new ArrayList<>(lst);
-                ast.push(RegAST.balanceSeq(lst2));
-                //ast.push(new RegAST.SeqList(lst2));
+                //ast.push(RegAST.balanceSeq(lst2));
+                ast.push(new RegAST.SeqSmartList(lst2));
             }
         };
         final IntConsumer doalt = (n) -> { // Alt n times
