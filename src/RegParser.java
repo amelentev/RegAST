@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.function.BinaryOperator;
 import java.util.function.IntConsumer;
 import java.util.regex.PatternSyntaxException;
 
@@ -24,7 +25,7 @@ public class RegParser {
                     lst.addFirst(ast.pop()); // reverse stack
                 List<RegAST> lst2 = extractStrings(lst);
                 //List<RegAST> lst2 = new ArrayList<>(lst);
-                ast.push(balance(lst2));
+                ast.push(RegAST.balanceSeq(lst2));
                 //ast.push(new RegAST.SeqList(lst2));
             }
         };
@@ -133,13 +134,5 @@ public class RegParser {
         if (sb.length() > 0)
             res.add(RegAST.newStr(sb));
         return res;
-    }
-
-    /** construct balanced binary tree of Seq */
-    private static RegAST balance(List<RegAST> lst) {
-        int n = lst.size();
-        assert n>0;
-        if (n==1) return lst.get(0);
-        return new RegAST.Seq(balance(lst.subList(0, n/2)), balance(lst.subList(n/2, n)));
     }
 }

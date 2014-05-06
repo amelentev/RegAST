@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
  * public methods are thread-safe.
  * <p> use example: RegParser.parse(regexp).match(input);
  */
-public abstract class RegAST implements Cloneable {
+public abstract class RegAST implements RegExp, Cloneable {
 /* Implementation details:
    It must be a Tree, not DAG! node reuse prohibited(except Eps). use clone().
    Problem: stack overflow on regexps of big depth (~10K on default stack size). can be partially fixed by flattering & ast optimizations. or tail call optimization.
@@ -36,7 +36,7 @@ public abstract class RegAST implements Cloneable {
         if ("".equals(s)) return canEmpty;
         RegAST r = this.clone(); // clone entire ast. O(m). no big deal, we need O(m) for state anyway.
         r.shift(true, s.charAt(0)); // transition from starting state
-        for (int i = 1; i < s.length(); i++)
+        for (int i = 1; i < s.length() && r.active; i++)
             r.shift(false, s.charAt(i));
         return r.canFinal;
     }
@@ -193,6 +193,7 @@ public abstract class RegAST implements Cloneable {
             return p.toString() + q.toString();
         }
     }
+    static RegAST balanceSeq(List<RegAST> lst) { return Util.balance(lst, (p,q) -> new Seq(p,q) ); }
     /** Sequence of >1 regexps */
     static class SeqList extends ARegAST {
         protected final List<RegAST> lst;

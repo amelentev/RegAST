@@ -82,57 +82,28 @@ public class RegASTTest {
     // (a?){n}a{n}
     @Test public void testAonAn() {
         int n = 100;
-        StringBuilder re = genAQ(n);
-        StringBuilder inp = genA(n);
-        re.append(inp.toString());
-        check(true, re.toString(), inp.toString());
+        StringBuilder inp = new StringBuilder(genA(n));
+        String re = genAQ(n) + inp;
+        check(true, re, inp.toString());
         //assertTrue(inp.toString().matches(re.toString())); // hang. exponential time in j.u.regex
         for (int i = 0; i < n; i++) {
             inp.append('a');
-            check(true, re.toString(), inp.toString());
+            check(true, re, inp.toString());
         }
         inp.append('a');
-        check(false, re.toString(), inp.toString());
-    }
-    @Test public void performance1() {
-        int n = 5000;
-        StringBuilder re = genAQ(n);
-        StringBuilder inp = genA(n);
-        re.append(inp.toString());
-        long time = System.currentTimeMillis();
-        check(true, re.toString(), inp.toString());
-        time = System.currentTimeMillis() - time;
-        System.out.println("performance1: " + time); // ~0.63s in 2GHz i7. without balancing: ~0.52
-        // grep -E '(a?){5000}a{5000}' - hang
-        // google re2 - 4.919s
-    }
-    StringBuilder genAQ(int n) {
-        StringBuilder re = new StringBuilder();
-        for (int i = 0; i < n; i++) re.append("a?");
-        return re;
-    }
-    StringBuilder genA(int n) {
-        StringBuilder inp = new StringBuilder();
-        for (int i = 0; i < n; i++) inp.append('a');
-        return inp;
-    }
-    @Test public void performance2() {
-        int n = 100000;
-        Random r = new Random(0);
-        RegAST re = RegParser.parse(genrnd(r, n, 1));
-        String s = genrnd(r, 2*n, 1);
-        boolean b = false;
-        long time = System.currentTimeMillis();
-        for (int i = 0; i < 100; i++) {
-            b ^= re.match(s);
-        }
-        time = System.currentTimeMillis() - time;
-        System.out.println("performance2: " + time);
-        // no balanced, no Str - hang. 10^10 ops.
-        // balanced, no Str - ~3653
-        // Str - ~455
+        check(false, re, inp.toString());
     }
 
+    static String genAQ(int n) {
+        StringBuilder re = new StringBuilder();
+        for (int i = 0; i < n; i++) re.append("a?");
+        return re.toString();
+    }
+    static String genA(int n) {
+        StringBuilder inp = new StringBuilder();
+        for (int i = 0; i < n; i++) inp.append('a');
+        return inp.toString();
+    }
     @Test public void parallelTest() throws ExecutionException, InterruptedException {
         String sre = "((a|b)*c(a|b)*c)*(a|b)*";
         Pattern p = Pattern.compile(sre);
