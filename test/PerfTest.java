@@ -65,7 +65,7 @@ google re2 - 4919 */
     }/*
 Balanced, no Str:	256.4
 SeqSmartList, no Str:	134.3
-Str:	30.3*/
+Str:	0 */
 
     void run(String msg, boolean expected, RegExp re, String inp) {
         final int m = 10;

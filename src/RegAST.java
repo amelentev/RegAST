@@ -103,6 +103,10 @@ public abstract class RegAST implements RegExp, Cloneable {
             active = !finals.isEmpty();
             canFinal = active && finals.getLast() == s.length()-1;
         }
+        @Override public boolean match(String input) {
+            return s.equals(input);
+        }
+
         @Override protected RegAST clone() { return new Str(s); }
         @Override public String toString() {
             String res = s;
