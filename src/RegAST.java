@@ -1,4 +1,8 @@
-import java.util.*;
+import gnu.trove.list.array.TIntArrayList;
+
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
 import java.util.stream.Collectors;
 
 /**
@@ -57,12 +61,15 @@ public abstract class RegAST implements RegExp, Cloneable {
         protected abstract void step(boolean st, char c);
     }
 
+    abstract int visit(int d, IntVisitor v);
+
     /** match empty string */
     static class Eps extends ARegAST {
         private Eps() { super(true); }
         @Override protected void step(boolean st, char c) {}
         @Override protected Eps clone() { return this; }
         @Override public String toString() { return "@"; }
+        @Override int visit(int d, IntVisitor v) { return v.eps(d); }
     }
     static final Eps eps = new Eps(); // singleton Eps
 
@@ -79,6 +86,7 @@ public abstract class RegAST implements RegExp, Cloneable {
         @Override protected Sym clone() { return new Sym(c); }
         final static String escapeSymbols = "*.+@";
         @Override public String toString() { return (escapeSymbols.indexOf(c)>=0 ? "\\"+c : c) + (canFinal?"`":""); }
+        @Override int visit(int d, IntVisitor v) { return v.sym(d, c); }
     }
 
     static class Str extends ARegAST {
@@ -114,6 +122,11 @@ public abstract class RegAST implements RegExp, Cloneable {
                 res = res.replace(""+c, "\\"+c);
             return res;
         }
+        @Override int visit(int d, IntVisitor v) {
+            for (int i = 0; i < s.length(); i++)
+                d = v.sym(d, s.charAt(i));
+            return d;
+        }
     }
 
     static RegAST newStr(CharSequence s) {
@@ -130,6 +143,7 @@ public abstract class RegAST implements RegExp, Cloneable {
         }
         @Override protected AnySym clone() { return new AnySym(); }
         @Override public String toString() { return "."; }
+        @Override int visit(int d, IntVisitor v) { return v.any(d); }
     }
     // TODO: match symbol group eg: [a-z]. class SymGroup { Predicate<Character> f }
 
@@ -152,6 +166,7 @@ public abstract class RegAST implements RegExp, Cloneable {
         @Override public String toString() {
             return "("+p.toString() + "|" + q.toString() + ")";
         }
+        @Override int visit(int d, IntVisitor v) { return v.alt(d, p, q); }
     }
     private static List<RegAST> cloneList(List<RegAST> lst) { return lst.stream().map(RegAST::clone).collect(Collectors.toList()); }
     /** Either one of list */
@@ -175,6 +190,7 @@ public abstract class RegAST implements RegExp, Cloneable {
         @Override public String toString() {
             return "("+ lst.stream().map(Object::toString).collect(Collectors.joining("|"))+")";
         }
+        @Override int visit(int d, IntVisitor v) { return v.alt(d, lst.toArray(new RegAST[0])); }
     }
     /** Sequence p then q */
     static class Seq extends ARegAST {
@@ -197,8 +213,9 @@ public abstract class RegAST implements RegExp, Cloneable {
         @Override public String toString() {
             return p.toString() + q.toString();
         }
+        @Override int visit(int d, IntVisitor v) { return v.seq(d, p, q); }
     }
-    static RegAST balanceSeq(List<RegAST> lst) { return Util.balance(lst, (p,q) -> new Seq(p,q) ); }
+    static RegAST balanceSeq(List<RegAST> lst) { return Util.balance(lst, Seq::new ); }
     /** Sequence of >1 regexps */
     static class SeqList extends ARegAST {
         protected final List<RegAST> lst;
@@ -217,10 +234,10 @@ public abstract class RegAST implements RegExp, Cloneable {
             }
         }
         @Override protected SeqList clone() { return new SeqList(canEmpty, cloneList(lst)); }
-
         @Override public String toString() {
             return lst.stream().map(Object::toString).collect(Collectors.joining());
         }
+        @Override int visit(int d, IntVisitor v) { return v.seq(d, lst.toArray(new RegAST[0])); }
     }
 
     /** Sequence of regexps with skipping non actives. Generalization of Str */
@@ -241,12 +258,13 @@ public abstract class RegAST implements RegExp, Cloneable {
         /** return if all nodes on [l,r) range have canEmpty. l inclusive, r exclusive */
         private boolean canAllEmptyOn(int l, int r) { return l>=r || nextNotEmpty[l] >= r; }
         /** mutable */
-        private List<Integer> actives = new ArrayList<>();
+        private TIntArrayList actives = new TIntArrayList();
+        private TIntArrayList newActives = new TIntArrayList();
         @Override protected void step(boolean st, char c) {
             int idx = 0;
             int n = lst.size();
             active = canFinal = false;
-            List<Integer> newActives = new ArrayList<>();
+            newActives.resetQuick();
             while (st && idx < n) {
                 RegAST a = lst.get(idx++);
                 boolean nextst = a.canEmpty || a.canFinal;
@@ -256,7 +274,8 @@ public abstract class RegAST implements RegExp, Cloneable {
                 active |= a.active;
                 if (a.active) newActives.add(idx-1);
             }
-            for (int ai : actives) {
+            for (int i = 0; i < actives.size(); i++) {
+                int ai = actives.get(i);
                 if (ai < idx) continue;
                 canFinal = canFinal && canAllEmptyOn(idx, ai);
                 idx = ai;
@@ -272,7 +291,7 @@ public abstract class RegAST implements RegExp, Cloneable {
             }
             if (idx < n)
                 canFinal = canFinal && canAllEmptyOn(idx, n);
-            actives = newActives;
+            TIntArrayList t = actives; actives = newActives; newActives = t;
         }
         SeqSmartList(boolean canEmpty, int[] nextNotEmpty, List<RegAST> lst) { super(canEmpty, lst); this.nextNotEmpty = nextNotEmpty; }
         @Override protected SeqSmartList clone() { return new SeqSmartList(canEmpty, nextNotEmpty, cloneList(lst)); }
@@ -298,6 +317,9 @@ public abstract class RegAST implements RegExp, Cloneable {
             String s = r.toString();
             return r instanceof Alt || r instanceof AltList || s.length()==1 ? s+"*" : "("+s+")*";
         }
+        @Override int visit(int d, IntVisitor v) {
+            return v.alt(d, eps, new Rep1(r));
+        }
     }
     /** Repetition of r  >=1 times. */
     static class Rep1 extends ARegAST {
@@ -318,5 +340,15 @@ public abstract class RegAST implements RegExp, Cloneable {
             String s = r.toString();
             return r instanceof Alt || r instanceof AltList || s.length()==1 ? s+"+" : "("+s+")+";
         }
+        @Override int visit(int d, IntVisitor v) { return v.rep1(d, r); }
+    }
+
+    interface IntVisitor {
+        int sym(int d, char c);
+        int any(int d);
+        int alt(int d, RegAST... e);
+        int seq(int d, RegAST... e);
+        int rep1(int d, RegAST r);
+        int eps(int d);
     }
 }

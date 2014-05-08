@@ -8,7 +8,7 @@ public abstract class RegAST2 implements RegExp {
     protected RegAST2(int id, boolean canEmpty) { this.id = id; this.canEmpty = canEmpty; }
 
     private static class State {
-        BitSet bs = new BitSet();
+        final BitSet bs = new BitSet();
         boolean active(RegAST2 u) { if (u.id<0) return false; else return bs.get(u.id); }
         boolean canFinal(RegAST2 u) { if (u.id<0) return false; else return bs.get(u.id+1); }
         void setActive(int id, boolean v) { bs.set(id, v); }
@@ -151,7 +151,7 @@ public abstract class RegAST2 implements RegExp {
         Seq newSeq(RegAST2 p, RegAST2 q) { incid(); return new Seq(curId, p, q); }
         Rep newRep(RegAST2 r) { incid(); return new Rep(curId, r); }
         Rep1 newRep1(RegAST2 r) { incid(); return new Rep1(curId, r); }
-        RegAST2 balanceSeq(List<RegAST2> lst) { return Util.balance(lst, (p, q) -> newSeq(p, q)); }
+        RegAST2 balanceSeq(List<RegAST2> lst) { return Util.balance(lst, this::newSeq); }
         static final Eps eps = new Eps(); // singleton Eps
     }
 }

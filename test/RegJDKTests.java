@@ -55,15 +55,16 @@ public class RegJDKTests {
                     continue wloop;
 
             boolean exp = dataString.matches(patternString);
-            assertEquals(patternString + "\n" + dataString, exp, RegParser.parse(patternString).match(dataString));
+            RegASTTest.check(patternString + "\n" + dataString, exp, patternString, dataString);
 
             patternString = ".*"+patternString+".*";
             exp = dataString.matches(patternString);
-            assertEquals(patternString + "\n" + dataString, exp, RegParser.parse(patternString).match(dataString));
+            RegASTTest.check(patternString + "\n" + dataString, exp, patternString, dataString);
             testCount++;
         }
         System.out.println(testCount);
     }
+
     /**
      * Reads a line from the input file. Keeps reading lines until a non
      * empty non comment line is read. If the line contains a \n then

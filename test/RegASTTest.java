@@ -13,12 +13,21 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class RegASTTest {
-    private void check(boolean e, RegAST re, String inp) {
-        assertEquals(e, re.match(inp));
+    static void check(String msg, boolean e, RegAST re, String inp) {
+        assertEquals(msg, e, re.match(inp));
+        NFA nfa = NFABuilder.buildNFA(re);
+        assertEquals(msg, e, nfa.match(inp));
     }
-    private void check(boolean e, String re, String inp) {
-        assertEquals(e, RegParser.parse(re).match(inp));
+    static void check(String msg, boolean e, String re, String inp) {
+        check(msg, e, RegParser.parse(re), inp);
     }
+    static void check(boolean e, RegAST re, String inp) {
+        check("Matching "+inp+" with " + re, e, re, inp);
+    }
+    static void check(boolean e, String re, String inp) {
+        check(e, RegParser.parse(re), inp);
+    }
+
 
     @Test
     public void testEvenCs() {
@@ -63,6 +72,7 @@ public class RegASTTest {
         check(true, "a*.", "a");
         check(true, "a*.", "aaaq");
         check(false, "a*.", "");
+        check(false, ".*a|b.*", "z");
     }
 
     @Test public void testAlt() {
