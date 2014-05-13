@@ -68,7 +68,7 @@ public abstract class RegAST implements RegExp, Cloneable {
         private Eps() { super(true); }
         @Override protected void step(boolean st, char c) {}
         @Override protected Eps clone() { return this; }
-        @Override public String toString() { return "@"; }
+        @Override public String toString() { return ""; }
         @Override int visit(int d, IntVisitor v) { return v.eps(d); }
     }
     static final Eps eps = new Eps(); // singleton Eps
@@ -84,7 +84,7 @@ public abstract class RegAST implements RegExp, Cloneable {
             active = canFinal = st && c==this.c;
         }
         @Override protected Sym clone() { return new Sym(c); }
-        final static String escapeSymbols = "*.+@";
+        final static String escapeSymbols = "*.+()?|";
         @Override public String toString() { return (escapeSymbols.indexOf(c)>=0 ? "\\"+c : c) + (canFinal?"`":""); }
         @Override int visit(int d, IntVisitor v) { return v.sym(d, c); }
     }
@@ -346,8 +346,8 @@ public abstract class RegAST implements RegExp, Cloneable {
     interface IntVisitor {
         int sym(int d, char c);
         int any(int d);
-        int alt(int d, RegAST... e);
-        int seq(int d, RegAST... e);
+        int alt(int d, RegAST... es);
+        int seq(int d, RegAST... es);
         int rep1(int d, RegAST r);
         int eps(int d);
     }

@@ -59,6 +59,8 @@ public class RegASTTest {
         check(true, re, "abbcbc");
         check(false, re, "abccbc");
         check(true, re, "abbcbbc");
+
+        check(false, "b+a+", "bbaba");
     }
 
     @Test public void testDot() {
@@ -82,11 +84,39 @@ public class RegASTTest {
         check(true, "a(b|)a", "aa");
         check(false, "a(b|)a", "aaa");
         check(false, "a(b|)a", "a");
+        check(true, "a|b", "a");
+        check(true, "a|b", "b");
+        check(false, "a|b", "a|b");
+        check(true, "(a||)", "a");
+        check(true, "(a||)", "");
+        check(true, "(a||a)*", "aa");
+        check(false, "((b|a+)|.)", "baaa");
+        check(true, "(.|b)*", "ba");
+        check(false, "a*|.", "ab");
     }
 
     @Test public void testParen() {
         check(true, "a()a", "aa");
         check(false, "a()a", "aba");
+    }
+
+    private void checkEmpty(String re) {
+        check(true, re, "");
+        check(false, re, "a");
+    }
+    @Test public void testEps() {
+        checkEmpty("");
+        checkEmpty("()");
+        checkEmpty("(|)");
+        checkEmpty("(||)");
+        checkEmpty("((|)|)");
+        check(true, "((a|)|)", "a");
+        check(true, "((a|)|)", "");
+        check(false, "((a|)|)", "aa");
+        checkEmpty("()*");
+        checkEmpty("(|)*");
+        checkEmpty("(|)+");
+        checkEmpty("((|)+)*");
     }
 
     // (a?){n}a{n}
@@ -118,11 +148,13 @@ public class RegASTTest {
         String sre = "((a|b)*c(a|b)*c)*(a|b)*";
         Pattern p = Pattern.compile(sre);
         RegAST re = RegParser.parse(sre);
+        NFA nfa = NFABuilder.buildNFA(re);
         Callable<Boolean> task = () -> {
             String s = genrnd(new Random(), 1000, 3);
             boolean our = re.match(s);
+            boolean our1 = nfa.match(s);
             boolean exp = p.matcher(s).matches(); // >=10000 - stack overflow in j.u.regexp
-            return exp == our;
+            return exp == our && exp == our1;
         };
         List<Future<Boolean>> lst = new ArrayList<>();
         ForkJoinPool pool = ForkJoinPool.commonPool();

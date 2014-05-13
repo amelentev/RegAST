@@ -16,11 +16,11 @@ public class RegParserTest {
         check("ab*c", "ab*c");
         check("(ab*|c)", "ab*|c");
         check("a(b*|c)", "a(b*|c)");
-        check("a((b*|c)|@)", "a(b*|c)?");
+        check("a((b*|c)|)", "a(b*|c)?");
         check("((a|b)*c(a|b)*c)*(a|b)*", "((a|b)*c(a|b)*c)*(a|b)*");
         check("(qw)*e.zx\\.\\*cas\nd", "(qw)*e.zx\\.\\*cas\\nd");
         check("(a|b|c)", "a|b|c");
-        check("(((a|@)*)*|b)", "a?**|b");
+        check("(((a|)*)*|b)", "a?**|b");
         check("a(b+c)+", "a(b+c)+");
     }
 

@@ -2,20 +2,22 @@ import gnu.trove.list.array.TIntArrayList;
 
 /** Immutable NFA representing RegExp */
 public class NFA implements RegExp {
-    private final String chars;
+    /** char transitions: >=0 - char codePoint, -1 - any char, -2 - no char match */
+    private final int[] chars;
+    static final int anyChar = -1;
+    static final int noChar = -2;
+
     private final int[][] epsilons; // epsilon transitions
-    private final int M; // end state
-    NFA(String chars, int[][] epsilons, int M) {
+    NFA(int[] chars, int[][] epsilons) {
         this.chars = chars;
         this.epsilons = epsilons;
-        this.M = M;
     }
 
-    public final static char anyChar = '\0';
-
     public boolean match(String input) {
-        boolean mark[] = new boolean[M+1];
-        boolean nextMark[] = new boolean[M+1];
+        int M = epsilons.length;
+        int endState = M-1;
+        boolean mark[] = new boolean[M];
+        boolean nextMark[] = new boolean[M];
         TIntArrayList states = new TIntArrayList();
         TIntArrayList nextStates = new TIntArrayList();
         mark[0] = true;
@@ -38,8 +40,8 @@ public class NFA implements RegExp {
             for (int i = 0; i < states.size(); i++) {
                 int s = states.get(i);
                 mark[s] = false; // will be nextMark
-                if (s==M) continue;
-                if (!nextMark[s+1] && (chars.charAt(s)==anyChar || input.charAt(ind) == chars.charAt(s))) {
+                if (s == endState) continue;
+                if (!nextMark[s+1] && (chars[s]==anyChar || input.codePointAt(ind) == chars[s])) {
                     nextMark[s+1] = true;
                     nextStates.add(s+1);
                 }
@@ -49,6 +51,6 @@ public class NFA implements RegExp {
             TIntArrayList t = states; states = nextStates; nextStates = t;
             boolean[] bt = mark; mark = nextMark; nextMark = bt;
         }
-        return !states.isEmpty() && mark[M];
+        return !states.isEmpty() && mark[endState];
     }
 }

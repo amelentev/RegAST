@@ -104,6 +104,7 @@ public class RegParser {
             throw new PatternSyntaxException("unmatched (", re, 0);
         doseq.accept(natom);
         doalt.accept(nalt);
+        if (ast.size()==0) return RegAST.eps;
         assert (ast.size()==1);
         return ast.pop();
     }

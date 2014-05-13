@@ -5,12 +5,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class NFABuilder implements RegAST.IntVisitor {
-    private final StringBuilder chars = new StringBuilder();
+    /** @see NFA#chars */
+    private final TIntList chars = new TIntArrayList();
     private final List<TIntList> epsilons = new ArrayList<>();
     private NFABuilder() { epsilons.add(null); }
 
-    private void append(char c) {
-        chars.append(c);
+    // invariants:
+    // 1) chars.size()+1 == epsilons.size()
+    // 2) for any RegAST (except eps), end state will be chars.size() == epsilons.size()-1
+    // 3) no backward eps edges at end states.
+
+    private void append(int c) {
+        chars.add(c);
         epsilons.add(null);
     }
     private void epsEdge(int from, int to) {
@@ -19,30 +25,26 @@ public class NFABuilder implements RegAST.IntVisitor {
             epsilons.set(from, new TIntArrayList());
         epsilons.get(from).add(to);
     }
+    // st - start state, return end state
     @Override public int sym(int st, char c) {
-        int end = chars.length();
+        epsEdge(st, chars.size());
         append(c);
-        epsEdge(st, end);
-        return end+1;
+        return chars.size();
     }
     @Override public int any(int st) {
-        int end = chars.length();
+        epsEdge(st, chars.size());
         append(NFA.anyChar);
-        epsEdge(st, end);
-        return end+1;
+        return chars.size();
     }
     @Override public int alt(int st, RegAST... es) {
-        TIntList lst = new TIntArrayList();
+        int[] ends = new int[es.length];
         for (int i = 0; i < es.length; i++) {
-            lst.add(es[i].visit(st, this));
-            if (i+1<es.length)
-                append('|');
+            append(NFA.noChar);
+            ends[i] = es[i].visit(st, this);
         }
-        int end = lst.max();
-        for (int i = 0; i < lst.size(); i++) {
-            epsEdge(lst.get(i), end);
-        }
-        return end;
+        for (int e : ends)
+            epsEdge(e, chars.size());
+        return chars.size();
     }
     @Override public int seq(int st, RegAST... es) {
         for (RegAST e : es)
@@ -50,9 +52,13 @@ public class NFABuilder implements RegAST.IntVisitor {
         return st;
     }
     @Override public int rep1(int st, RegAST r) {
-        int end = r.visit(st, this);
-        epsEdge(end, st);
-        return end;
+        int st1 = chars.size();
+        epsEdge(st, st1);
+        int end = r.visit(st1, this);
+        epsEdge(end, st1);
+        append(NFA.noChar);
+        epsEdge(end, chars.size());
+        return chars.size();
     }
     @Override public int eps(int d) { return d; }
 
@@ -62,8 +68,8 @@ public class NFABuilder implements RegAST.IntVisitor {
 
     public static NFA buildNFA(RegAST re) {
         NFABuilder b = new NFABuilder();
-        int endstate = re.visit(0, b);
+        re.visit(0, b);
         int[][] e = compress(b.epsilons);
-        return new NFA(b.chars.toString(), e, endstate);
+        return new NFA(b.chars.toArray(), e);
     }
 }

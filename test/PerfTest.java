@@ -49,7 +49,7 @@ mutable AST, no Str, SeqSmartList:	402.1
 mutable AST, Str, SeqList:	479.5
 mutable AST, Str, balanced Seq:	497.4
 mutable AST, Str, SeqSmartList:	405.5
-NFA:	627.2
+NFA:	980.7
 immutable AST, no Str, balanced Seq:	1329.4
 grep -E '(a?){5000}a{5000}' - hang
 google re2 - 4919 */
