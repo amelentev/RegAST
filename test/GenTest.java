@@ -19,18 +19,17 @@ public class GenTest {
         }
         RegAST next(int m) {
             if (m==0)
-                switch (r.nextInt(3)) {
+                return RegAST.eps;
+            else
+                switch (r.nextInt(8)) {
                     case 0: return RegAST.eps;
                     case 1: return new RegAST.Sym(chars.charAt(r.nextInt(chars.length())));
-                    default: return new RegAST.AnySym();
-                }
-            else
-                switch (r.nextInt(5)) {
-                    case 0: return new RegAST.Rep(next(m-1));
-                    case 1: return new RegAST.Rep1(next(m-1));
-                    case 2: return new RegAST.Alt(next(m/2), next(m/2));
-                    case 3: return new RegAST.AltList(genList(3, m/3));
-                    case 4: return new RegAST.Seq(next(m/2), next(m/2));
+                    case 2: return new RegAST.AnySym();
+                    case 3: return new RegAST.Rep(next(m-1));
+                    case 4: return new RegAST.Rep1(next(m-1));
+                    case 5: return new RegAST.Alt(next(m/2), next(m/2));
+                    case 6: return new RegAST.AltList(genList(3, m/3));
+                    case 7: return new RegAST.Seq(next(m/2), next(m/2));
                     default: return new RegAST.SeqList(genList(3, m/3));
                 }
         }
@@ -58,7 +57,7 @@ public class GenTest {
     @Test public void genTests() {
         RegASTGenerator reg = new RegASTGenerator();
         InputGenerator ing = new InputGenerator();
-        for (int m = 0; m < 40; m++) {
+        for (int m = 1; m <= 40; m++) {
             for (int _i = 0; _i < 10; _i++) {
                 RegAST re = reg.next(m);
                 NFA nfa = NFABuilder.buildNFA(re);
