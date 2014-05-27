@@ -20,7 +20,8 @@ public abstract class RegAST implements RegExp, Cloneable {
    AST has mutable state (canFinal and active fields). It can be removed:
      1) Make canFinal and active be ThreadLocal so every thread could have separate state. But performance will be poor.
      2) Make AST immutable: Extract all state fields to separate state class (-2 boolean).
-        Add id/key field to AST nodes for index the state (+1 int). Performance unclear.
+        Add id/key field to AST nodes for index the state (+1 int).
+        see RegAST2.
 */
     /** can the expression match empty string */
     final protected boolean canEmpty;
